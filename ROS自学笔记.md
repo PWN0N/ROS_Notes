@@ -82,3 +82,105 @@ catkin_make
 - rosd 列出功能包的目录
 - roscd 对应Linux中ls
 
+## ROS节点编程
+
+### 一、简单的发布节点
+```cpp
+#include "ros/ros.h"
+#include "std_msgs/String.h"
+#include <sstream>
+```
+第一行包含了使用ROS节点所有必要的文件
+第二行包含了需要使用的消息类型（根据所需使用的消息类型不同而包含不同的头文件）
+
+```cpp
+ros::init(argc,argv,"example1_a");
+```
+启动节点并设置**节点**名称，**节点**名称必须是唯一的
+```cpp
+ros::NodeHandle n;
+```
+设置节点进程的句柄,第一个创建的节点句柄将会初始化这个节点，最后一个销毁的节点将会释放节点所使用的所有资源。
+```cpp
+ros::Publisher chatter_pub = n.advertise<std_msgs::String>("message",1000);
+```
+将节点设置成发布者，
+告诉主机所发布的主题和类型的名称(我们将会在一个名字为message的**话题（Topic）**上发布一个std_msgs/String类型的消息)，并将告知节点管理器,这就使得主机告诉了所有订阅了message话题的节点，我们将在这个话题上发布数据。第二个参数是发布队列的大小，它的作用是缓冲。当我们发布消息很快的时候，它将能缓冲1000条信息。如果慢了的话就会覆盖前面的信息。
+
+NodeHandle::advertise()将会返回ros::Publisher对象，该对象有两个作用，首先是它包括一个publish()方法可以在制定的话题上发布消息，其次，当超出范围之外的时候就会自动的处理。
+
+```cpp
+ros::Rate loop_rate(10);  
+```
+一个ros::Rate对象允许你制定循环的频率。它将会记录从上次调用Rate::sleep()到现在为止的时间，并且休眠正确的时间。在这个例子中，设置的频率为10Hz(设置发送数据的频率为10Hz)。
+
+```cpp
+while (ros::ok())
+{
+```
+默认情况下，roscpp将会安装一个SIGINT监听，ros::ok()在以下几种情况下也会返回false：（1）按下Ctrl-C时（2）我们被一个同名同姓的节点从网络中踢出（3）ros::shutdown()被应用程序的另一部分调用（4）所有的ros::NodeHandles都被销毁了。一旦ros::ok()返回false，所有的ROS调用都会失败。
+
+```cpp
+std_msgs::String msg;  
+std::stringstream ss;  
+ss << "hello world " << count;  
+msg.data = ss.str();  
+```
+我们使用message-adapted类在ROS中广播信息，这个类一般是从msg文件中产生的。我们现在使用的是标准的字符串消息，它只有一个data数据成员，当然更复杂的消息也是可以的。
+
+```cpp
+chatter_pub.publish(msg);  
+```
+现在我们向话题message发布消息。
+```cpp
+ROS_INFO("%s", msg.data.c_str());  
+```
+ROS_INFO等同于cout和printf。
+
+```cpp
+ros::spinOnce();
+```
+在这个简单的程序中调用ros::spinOnce();是不必要的，因为我们没有收到任何的回调信息。然而如果你为这个应用程序添加一个订阅者，并且在这里没有调用ros::spinOnce()，你的回调函数将不会被调用。所以这是一个良好的风格。
+
+```cpp
+loop_rate.sleep();  
+```
+
+休眠一下，使程序满足前面所设置的10Hz的要求。
+
+**完整程序如下**
+```cpp
+#include "ros/ros.h"
+#include "std_msgs/String.h"
+#include <sstream>
+
+int main(int argc, char **argv)
+{
+  ros::init(argc,argv,"example1_a");
+  ros::NodeHandle n;
+  ros::Publisher chatter_pub = n.advertise<std_msgs::String>("message",1000);
+  ros::Rate loop_rate(10); 
+  while (ros::ok())
+    {
+      std_msgs::String msg;  
+      std::stringstream ss;  
+      ss << "hello world " << count;  
+      msg.data = ss.str();  
+      chatter_pub.publish(msg);  
+      ROS_INFO("%s", msg.data.c_str());  
+      ros::spinOnce();
+      loop_rate.sleep();  
+     }
+  return 0;
+}
+```
+
+### 二、简单的订阅节点
+
+```cpp
+#include "ros/ros.h"
+#include "std_msgs/String.h"
+```
+第一行包含了使用ROS节点所有必要的文件
+第二行包含了需要使用的消息类型（根据所需使用的消息类型不同而包含不同的头文件）
+
